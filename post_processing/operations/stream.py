@@ -372,6 +372,7 @@ class StreamOperation(base_profile.PathToPathOperation, base_profile.FileOutputM
         for calculation_index, calculation in replacements.items():
             self.streams[calculation_index] = calculation
 
+    # TODO: Break up __call__ to make code reuse easier
     def __call__(
         self,
         profile: base_profile.Profile,
