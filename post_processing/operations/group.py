@@ -77,7 +77,7 @@ def get_group_name(
     total_hours: int = int(last_lead.total_seconds() / 3600)
     if group_duration == timedelta(hours=24) and total_hours >= 24 and total_hours % 24 == 0:
         return f"day{total_hours // 24}"
-    return f"{total_hours}hours"
+    return f"{total_hours}hour"
 
 
 @timed_function()
