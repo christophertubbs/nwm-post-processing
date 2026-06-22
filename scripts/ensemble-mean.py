@@ -308,7 +308,7 @@ def combine_files(
     :param dataset_information: Information about what to expect input data to look like
     :return: A new xarray dataset combining the resulting combined data
     """
-    LOGGER.debug(
+    LOGGER.info(
         f"Combining the following paths via Mean{os.linesep}"
         f"    - {(os.linesep + '    - ').join(str(path.resolve()) for path in paths)}"
     )
