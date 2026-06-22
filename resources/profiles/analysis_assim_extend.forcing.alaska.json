@@ -66,7 +66,7 @@
                     },
                     {
                         "operation": "save",
-                        "filename_pattern": "nwm.t{cycle}z.{Configuration}.{ModelOutputType}.tm{tminus}.alaska.nc",
+                        "filename_pattern": "nwm.t{cycle}z.{Configuration}.{ModelOutputType}.tm{tminus}.alaska.aprfc.nc",
                         "directory": "{output_path}/"
                     }
                 ]
