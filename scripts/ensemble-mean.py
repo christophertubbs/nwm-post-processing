@@ -310,7 +310,7 @@ def combine_files(
     """
     LOGGER.debug(
         f"Combining the following paths via Mean{os.linesep}"
-        f"    - {(os.linesep + '    - ').join(path.name for path in paths)}"
+        f"    - {(os.linesep + '    - ').join(str(path.resolve()) for path in paths)}"
     )
     output_parameters: dict[str, typing.Any] = {
         "data_vars": {},
@@ -398,10 +398,23 @@ class StreamingMean:
         self.name = str(template.name)
         self.dims = template.dims
         self.attrs = template.attrs.copy()
+
+        if "long_name" in self.attrs:
+            self.attrs['long_name'] = f"Ensemble Mean for {self.attrs['long_name']}"
+
         self.encoding = clean_encoding(template.encoding)
 
         self.fill_value = template.encoding.get("_FillValue")
         self.missing_value = template.encoding.get("missing_value", self.fill_value)
+
+        if self.fill_value is None and "_FillValue" in self.attrs:
+            self.fill_value = self.attrs.pop("_FillValue")
+            self.encoding['_FillValue'] = self.fill_value
+
+        if self.missing_value is None and "missing_value" in self.attrs:
+            self.missing_value = self.attrs.pop("missing_value")
+            self.encoding['missing_value'] = self.missing_value
+
         self.scale_factor = numpy.float32(template.encoding.get("scale_factor", 1.0))
         self.add_offset = numpy.float32(template.encoding.get("add_offset", 0.0))
 
@@ -414,9 +427,17 @@ class StreamingMean:
 
         :param variable: The netcdf variable to add to the calculation
         """
-        packed: numpy.typing.NDArray[numpy.number] = variable.data
+        self.normalize_size(new_shape=variable.shape)
 
-        # Consider all values when updating, since we can't tell what's a place holder and what's not
+        packed_slices: tuple[slice, ...] = tuple(slice(0, size) for size in variable.shape)
+        packed: numpy.typing.NDArray[numpy.number] = numpy.full(
+            self.total.shape,
+            self.fill_value or self.missing_value or 0 if numpy.issubdtype(variable.data.dtype, numpy.integer) else 0.0,
+            dtype=variable.data.dtype
+        )
+        packed[packed_slices] = variable.data
+
+        # Consider all values when updating, since we can't tell what's a placeholder and what's not
         if self.fill_value is None and self.missing_value is None:
             valid = numpy.ones(packed.shape, dtype=bool)
         # We determined the missing_value has been set by the above conditional, so only update values in the arrays that aren't marked as the missing value
@@ -440,6 +461,30 @@ class StreamingMean:
 
         # Increment the count for all updated values
         self.count[valid] += 1
+
+    def normalize_size(self, new_shape: tuple[int, ...]):
+        """
+        Resize the current total and count to match a new shape
+
+        This is a no-op if the current size is larger than the new size
+
+        :param new_shape: The new shape to conform to
+        """
+
+        if new_shape <= self.total.shape:
+            return
+
+        LOGGER.info(f"The array for {self.name} has to be reshaped from {self.total.shape} to {new_shape}")
+        new_total: numpy.typing.NDArray = numpy.zeros(shape=new_shape, dtype=self.total.dtype)
+        new_count: numpy.typing.NDArray = numpy.zeros(shape=new_shape, dtype=self.count.dtype)
+
+        slices: tuple[slice, ...] = tuple(slice(0, size) for size in self.total.shape)
+
+        new_total[slices] = self.total
+        new_count[slices] = self.count
+
+        self.total = new_total
+        self.count = new_count
 
     def gather(self) -> xarray.DataArray:
         """
@@ -499,7 +544,7 @@ def main(args: generic.Sequence[str]) -> int:
         with combine_files(paths=member_paths, dataset_information=dataset_information) as combined_files:
             LOGGER.debug(f"Writing combined data to {arguments.output_path}")
             combined_files.to_netcdf(arguments.output_path)
-            LOGGER.info(f"Data written")
+            LOGGER.info(f"Data written to {arguments.output_path}{os.linesep}")
     except KeyboardInterrupt:
         pass
     except BaseException as error:

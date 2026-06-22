@@ -40,7 +40,10 @@ LOGGER: logging.Logger = logging.getLogger(pathlib.Path(__file__).stem)
 """The primary logger for this file"""
 
 
-_DEFAULT_SOURCE_URL: str = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwm/v3.0"
+_DEFAULT_SOURCE_URL: str = os.environ.get(
+    "PP_DOWNLOAD_INPUT_BASE_URL",
+    "https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwm/v3.0"
+)
 """The default location for where to find NWM output"""
 
 
