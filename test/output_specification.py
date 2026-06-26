@@ -26,6 +26,8 @@ T = typing.TypeVar("T")
 """A generic type"""
 
 
+MAXIMUM_CPUS: int = os.cpu_count() // 2
+
 LOGGER: logging.Logger = logging.getLogger(pathlib.Path(__file__).stem)
 
 
@@ -527,7 +529,7 @@ class Dataset:
         routelink.to_netcdf(output_path)
         return output_path
 
-
+    """
     def generate_thresholds(
         self,
         data_path: pathlib.Path,
@@ -541,7 +543,7 @@ class Dataset:
         step: int = 1,
         seed: int = 12345
     ) -> typing.Sequence[pathlib.Path]:
-        """
+        \"""
         Generate a threshold file for each passed in percentile
 
         :param data_path: The path to where all generated data lies
@@ -555,7 +557,7 @@ class Dataset:
         :param step: The amount of hours between each data file
         :param seed: The seed for the random number generator
         :returns: The paths to all generated threshold files
-        """
+        \"""
         paths_to_data: typing.Sequence[pathlib.Path] = self.get_filenames(
             data_path=data_path,
             cycle=cycle,
@@ -653,7 +655,7 @@ class Dataset:
             )
 
         return output_paths
-
+"""
 
 
     def generate_masks(
@@ -823,7 +825,7 @@ class Dataset:
             for file_index, output_path in enumerate(output_paths)
         ]
 
-        with multiprocessing.Pool() as pool:
+        with multiprocessing.Pool(processes=MAXIMUM_CPUS) as pool:
             future_paths: typing.List[multiprocessing.pool.AsyncResult[pathlib.Path]] = [
                 pool.apply_async(
                     func=write_file,

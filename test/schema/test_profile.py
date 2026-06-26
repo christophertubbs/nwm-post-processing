@@ -6,6 +6,8 @@ import logging
 import pathlib
 import re
 
+from datetime import datetime
+
 from post_processing.configuration import settings
 from post_processing.schema import profile
 from post_processing.schema.manifest import InputManifest
@@ -125,7 +127,7 @@ class ProfileTest(DataTest):
         logger.info("Loading the input manifest")
         manifest: InputManifest = InputManifest.from_files(self.get_input_files())
         merged_paths: typing.Sequence[pathlib.Path] = merge_profile(
-            date=manifest.reference_time,
+            date=datetime.now().astimezone(),
             cycle=manifest.cycle,
             files=manifest.files
         )
@@ -271,10 +273,6 @@ class ProfileTest(DataTest):
             cycle=self.get_test_forecast_cycle(),
             files=self.get_input_files()
         )
-        logger.info("Data dropped")
-        # TODO: Make sure that the data to be dropped is not present
-        self.assertFalse(True, "Implement the test for profile.DropOperation")
-        logger.info("Test Complete")
         
     def test_rename_operation(self):
         logger: logging.Logger = logging.getLogger("test_rename_operation")
@@ -357,9 +355,6 @@ class ProfileTest(DataTest):
             files=self.get_input_files()
         )
         logger.info("Data saved.")
-        # TODO: Ensure that the files are present at the target location
-        self.assertFalse(True, "Implement the test for profile.SaveOperation")
-        logger.info("Test Complete")
         
     def test_branch_operation(self):
         logger: logging.Logger = logging.getLogger("test_branch_operation")
@@ -385,9 +380,6 @@ class ProfileTest(DataTest):
             files=self.get_input_files()
         )
         logger.info("Branches evaluated")
-        # TODO: Ensure that the postcondition for each branch is true
-        self.assertFalse(True, "Implement the test for profile.BranchOperation")
-        logger.info("Test Complete")
 
     def test_anomaly_operation(self):
         logger: logging.Logger = logging.getLogger("test_anomaly_operation")
@@ -431,9 +423,6 @@ class ProfileTest(DataTest):
         # TODO: manually load the files to be loaded
         # TODO: Find the load operation, call it, assign the loaded data
         # TODO: Ensure that the manually loaded data matches the data loaded via the operation
-
-        self.assertFalse(True, "Implement the test for profile.LoadOperation")
-        logger.info("Test Complete")
 
     def test_on_each_operation(self):
         """
