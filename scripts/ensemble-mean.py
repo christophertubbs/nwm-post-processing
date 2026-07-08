@@ -14,6 +14,7 @@ import re
 import xarray
 import numpy
 
+from configuration import settings
 from post_processing.utilities import logging
 
 LOGGER: logging.Logger = logging.get_logger(pathlib.Path(__file__))
@@ -435,7 +436,19 @@ class StreamingMean:
             self.fill_value or self.missing_value or 0 if numpy.issubdtype(variable.data.dtype, numpy.integer) else 0.0,
             dtype=variable.data.dtype
         )
-        packed[packed_slices] = variable.data
+
+        try:
+            packed[packed_slices] = variable.data
+        except ValueError as update_error:
+            if "could not broadcast input array from shape" in str(update_error).lower():
+                variable_description: str = f"{variable.dtype} {variable.name}({', '.join(variable.dims)})"
+                internal_description: str = f"{self.total.dtype} {self.name}({', '.join(self.dims)})"
+                raise ValueError(
+                    f"Cannot update the mean of {self.name} by adding {variable_description} to {internal_description}. "
+                    f"Ensemble members don't all have the same dimensions and are therefore incompatible. "
+                    f"Please evaluate model output that is processed by Post Processing"
+                ) from update_error
+            raise
 
         # Consider all values when updating, since we can't tell what's a placeholder and what's not
         if self.fill_value is None and self.missing_value is None:
