@@ -14,7 +14,6 @@ import re
 import xarray
 import numpy
 
-from configuration import settings
 from post_processing.utilities import logging
 
 LOGGER: logging.Logger = logging.get_logger(pathlib.Path(__file__))
@@ -416,10 +415,7 @@ class StreamingMean:
             self.missing_value = self.attrs.pop("missing_value")
             self.encoding['missing_value'] = self.missing_value
 
-        self.scale_factor = numpy.float32(template.encoding.get("scale_factor", 1.0))
-        self.add_offset = numpy.float32(template.encoding.get("add_offset", 0.0))
-
-        self.total = numpy.zeros(template.shape, dtype=numpy.float32)
+        self.total = numpy.zeros(template.shape, dtype=numpy.int64)
         self.count = numpy.zeros(template.shape, dtype=numpy.uint16)
 
     def update(self, variable: xarray.DataArray):
@@ -464,13 +460,13 @@ class StreamingMean:
             valid = (packed != self.fill_value) & (packed != self.missing_value)
 
         # Make the read values an array of floats so that they may be adjusted and added
-        decoded: numpy.typing.NDArray[numpy.float32] = packed.astype(numpy.float32, copy=False)
+        #decoded: numpy.typing.NDArray[numpy.float32] = packed.astype(numpy.float32, copy=False)
 
-        # Adjust the values by the template's scale factor and add offset to ensure that the values are correctly unpacked
-        decoded = decoded * self.scale_factor + self.add_offset
+        # `decoded` does not need to be scaled here - the scaling is performed as the final file is saved with the
+        # scaling instructions in the attributes
 
         # Add the decoded values to the total. This is performed this way to avoid unneeded operations under the hood
-        numpy.add(self.total, decoded, out=self.total, where=valid)
+        numpy.add(self.total, packed, out=self.total, where=valid)
 
         # Increment the count for all updated values
         self.count[valid] += 1
@@ -518,6 +514,10 @@ class StreamingMean:
         )
 
         # Create the DataArray to return
+        # The important encoding is most likely in self.attrs, NOT encoding.
+        # This means that all operations prior were performed on packed data.
+        # Storing the packed float mean will stay as a float mean, but the save process will glean encoding
+        # information NOT from the encoding variable but instead from attrs.
         output: xarray.DataArray = xarray.DataArray(
             name=self.name,
             data=mean,
@@ -527,6 +527,9 @@ class StreamingMean:
 
         # Ensure that the encoding is correct so that the variable is written to disk correctly
         output.encoding.update(self.encoding)
+
+        # The data in 'output' will still look unscaled - that is fine. Information in attrs will be used for
+        # encoding when saved to disk.
         return output
 
 
@@ -556,6 +559,11 @@ def main(args: generic.Sequence[str]) -> int:
             )
         with combine_files(paths=member_paths, dataset_information=dataset_information) as combined_files:
             LOGGER.debug(f"Writing combined data to {arguments.output_path}")
+
+            # The data within combined_files may not be scaled.
+            # --------------- That's fine ---------------------
+            # Saving the scale instructions as attributes will cause the writer to store that information on disk
+            # correctly in such a way that reads will later decode correctly
             combined_files.to_netcdf(arguments.output_path)
             LOGGER.info(f"Data written to {arguments.output_path}{os.linesep}")
     except KeyboardInterrupt:
